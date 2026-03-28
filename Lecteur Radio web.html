@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lecteur de Radio Web</title>
+    <style>
+        /* --- Variables de Couleurs --- */
+        :root {
+            --bg-color: #e0f7ff; /* Bleu très clair */
+            --container-bg: #ffffff; /* Blanc */
+            --primary-text: #333333;
+            --button-bg: #003366; /* Bleu foncé */
+            --button-hover-bg: #0055a4; /* Bleu un peu plus clair */
+            --button-text: #ffffff;
+            --border-color: #b3e5fc;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --favorite-color: #ffd700; /* Or */
+            --placeholder-bg: #f0f4f8;
+        }
+
+        /* --- Style Général --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--primary-text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 700px;
+            background-color: var(--container-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px var(--shadow-color);
+            padding: 25px;
+            box-sizing: border-box;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: var(--button-bg);
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        /* --- Sections --- */
+        .section {
+            background-color: #f8f9fa;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        /* --- NOUVEAU: Section Illustration --- */
+        .illustration-section {
+            padding: 15px;
+        }
+        
+        .image-container {
+            width: 100%;
+            aspect-ratio: 4 / 1;
+            background-color: var(--placeholder-bg);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            border: 2px dashed var(--border-color);
+        }
+
+        .image-container::before {
+            content: 'Aucune illustration';
+            color: #90a4ae;
+            font-style: italic;
+        }
+        
+        .image-container.has-image::before {
+            display: none;
+        }
+
+        #illustration-image {
+            display: none;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.2s ease-in-out;
+        }
+        
+        .image-container.has-image #illustration-image {
+            display: block;
+        }
+
+        .image-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .image-controls .size-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-grow: 1;
+        }
+
+        #image-size-slider {
+            width: 100%;
+            max-width: 200px;
+        }
+        
+        #image-input {
+            display: none;
+        }
+
+        /* --- Formulaire d'ajout --- */
+        #add-station-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        #add-station-form input[type="text"],
+        #add-station-form input[type="url"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 16px;
+            min-width: 150px;
+        }
+
+        /* --- Boutons --- */
+        .btn {
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background-color: var(--button-hover-bg);
+        }
+        
+        .btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        /* --- Contrôles du lecteur --- */
+        .player-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        #current-station {
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            min-height: 24px;
+            color: var(--button-bg);
+        }
+
+        .controls-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .volume-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        #volume-slider {
+            width: 150px;
+            cursor: pointer;
+        }
+
+        /* --- Liste de lecture --- */
+        #playlist {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .playlist-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            transition: background-color 0.2s;
+        }
+        
+        .playlist-item:last-child { border-bottom: none; }
+        .playlist-item:hover { background-color: #f1f1f1; }
+        .playlist-item.playing { background-color: var(--bg-color); font-weight: bold; }
+        .station-info { flex-grow: 1; cursor: pointer; }
+        .station-name { font-weight: 500; }
+        .station-url { font-size: 0.85em; color: #6c757d; display: block; word-break: break-all; }
+        .station-actions .btn-icon { background: none; border: none; cursor: pointer; font-size: 20px; padding: 5px; color: #aaa; transition: color 0.2s; }
+        .station-actions .btn-icon:hover { color: var(--button-bg); }
+        .btn-icon.favorite { color: var(--favorite-color); }
+        
+        /* --- Gestion des données --- */
+        .data-management { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
+        #import-json-input { display: none; }
+        .icon { width: 1em; height: 1em; fill: currentColor; }
+
+        /* --- Responsive Design --- */
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .container { padding: 15px; }
+            #add-station-form, .data-management { flex-direction: column; align-items: stretch; }
+            .data-management .btn { width: 100%; }
+            .image-controls { flex-direction: column; align-items: stretch; }
+            .image-controls .btn { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="container">
+        <!-- NOUVEAU: Section pour l'illustration -->
+        <div class="section illustration-section">
+            <div class="image-container" id="image-container">
+                <img id="illustration-image" src="" alt="Illustration personnalisée">
+            </div>
+            <div class="image-controls">
+                <button id="load-image-btn" class="btn">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                    Charger une illustration
+                </button>
+                <input type="file" id="image-input" accept="image/jpeg, image/png, image/webp, image/svg+xml">
+                <div class="size-control" style="display: none;">
+                    <label for="image-size-slider">Taille:</label>
+                    <input type="range" id="image-size-slider" min="0.5" max="2.5" step="0.1" value="1">
+                </div>
+                <button id="remove-image-btn" class="btn" style="display: none; background-color: #c82333;">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    Retirer
+                </button>
+            </div>
+        </div>
+        
+        <h1>
+            <svg class="icon" viewBox="0 0 24 24" style="vertical-align: -0.125em;"><path d="M12 3c-4.97 0-9 4.03-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7c0-4.97-4.03-9-9-9z"/></svg>
+            Lecteur de Radio Web
+        </h1>
+        
+        <audio id="audio-player"></audio>
+
+        <div class="section player-controls">
+            <h2>Lecteur</h2>
+            <div id="current-station">Aucune radio en cours de lecture</div>
+            <div class="controls-buttons">
+                <button id="play-btn" class="btn" disabled>Lecture</button>
+                <button id="pause-btn" class="btn" disabled>Pause</button>
+                <button id="stop-btn" class="btn" disabled>Arrêt</button>
+            </div>
+            <div class="volume-control">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                <input id="volume-slider" type="range" min="0" max="1" step="0.05" value="0.8">
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Ma Liste de Lecture</h2>
+            <form id="add-station-form">
+                <input type="text" id="station-name-input" placeholder="Nom de la radio (ex: FIP)" required>
+                <input type="url" id="station-url-input" placeholder="URL du flux radio" required>
+                <button type="submit" class="btn">Ajouter</button>
+            </form>
+            <ul id="playlist"></ul>
+        </div>
+        
+        <div class="section">
+             <h2>Gestion des Données</h2>
+            <div class="data-management">
+                <button id="import-json-btn" class="btn">Importer (JSON)</button>
+                <input type="file" id="import-json-input" accept=".json">
+                <button id="export-json-btn" class="btn">Exporter (JSON)</button>
+                <button id="export-html-btn" class="btn">Exporter Lecteur (HTML)</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // --- Références aux éléments du DOM ---
+        const audioPlayer = document.getElementById('audio-player');
+        // ... (autres références existantes)
+        const playBtn = document.getElementById('play-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const volumeSlider = document.getElementById('volume-slider');
+        const currentStationDiv = document.getElementById('current-station');
+        const playlistUl = document.getElementById('playlist');
+        
+        const addStationForm = document.getElementById('add-station-form');
+        const stationNameInput = document.getElementById('station-name-input');
+        const stationUrlInput = document.getElementById('station-url-input');
+
+        const importJsonBtn = document.getElementById('import-json-btn');
+        const importJsonInput = document.getElementById('import-json-input');
+        const exportJsonBtn = document.getElementById('export-json-btn');
+        const exportHtmlBtn = document.getElementById('export-html-btn');
+
+        // NOUVEAU: Références pour l'illustration
+        const imageContainer = document.getElementById('image-container');
+        const illustrationImage = document.getElementById('illustration-image');
+        const loadImageBtn = document.getElementById('load-image-btn');
+        const imageInput = document.getElementById('image-input');
+        const imageSizeSlider = document.getElementById('image-size-slider');
+        const sizeControlDiv = document.querySelector('.size-control');
+        const removeImageBtn = document.getElementById('remove-image-btn');
+
+
+        // --- État de l'application ---
+        let stations = [];
+        let currentStationIndex = -1;
+
+        // --- Fonctions Illustration ---
+
+        /**
+         * Met à jour l'affichage des contrôles de l'image.
+         */
+        function updateImageControls(hasImage) {
+            if (hasImage) {
+                imageContainer.classList.add('has-image');
+                sizeControlDiv.style.display = 'flex';
+                removeImageBtn.style.display = 'inline-flex';
+            } else {
+                imageContainer.classList.remove('has-image');
+                illustrationImage.src = '';
+                sizeControlDiv.style.display = 'none';
+                removeImageBtn.style.display = 'none';
+            }
+        }
+        
+        /**
+         * Gère le chargement d'un fichier image.
+         */
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imageDataUrl = e.target.result;
+                illustrationImage.src = imageDataUrl;
+                updateImageControls(true);
+                localStorage.setItem('radioPlayerImage', imageDataUrl);
+                // Réinitialiser la taille par défaut quand on charge une nouvelle image
+                imageSizeSlider.value = 1;
+                illustrationImage.style.transform = 'scale(1)';
+                localStorage.setItem('radioPlayerImageScale', '1');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        /**
+         * Charge l'illustration et sa taille depuis le LocalStorage.
+         */
+        function loadIllustration() {
+            const savedImage = localStorage.getItem('radioPlayerImage');
+            const savedScale = localStorage.getItem('radioPlayerImageScale') || '1';
+
+            if (savedImage) {
+                illustrationImage.src = savedImage;
+                illustrationImage.style.transform = `scale(${savedScale})`;
+                imageSizeSlider.value = savedScale;
+                updateImageControls(true);
+            }
+        }
+
+
+        // --- Fonctions Radio (existantes, inchangées) ---
+
+        function renderPlaylist() {
+            playlistUl.innerHTML = '';
+            const sortedStations = [...stations].sort((a, b) => b.favorite - a.favorite);
+
+            if (sortedStations.length === 0) {
+                playlistUl.innerHTML = '<li style="text-align: center; color: #6c757d; padding: 20px;">Votre liste est vide. Ajoutez une radio !</li>';
+                return;
+            }
+
+            sortedStations.forEach(station => {
+                const originalIndex = stations.findIndex(s => s.url === station.url && s.name === station.name);
+                const li = document.createElement('li');
+                li.className = 'playlist-item';
+                li.dataset.index = originalIndex;
+                if (originalIndex === currentStationIndex) {
+                    li.classList.add('playing');
+                }
+
+                li.innerHTML = `
+                    <div class="station-info">
+                        <span class="station-name">${station.name}</span>
+                        <span class="station-url">${station.url}</span>
+                    </div>
+                    <div class="station-actions">
+                        <button class="btn-icon favorite-btn ${station.favorite ? 'favorite' : ''}" title="Mettre en favori">⭐</button>
+                        <button class="btn-icon delete-btn" title="Supprimer la radio">🗑️</button>
+                    </div>
+                `;
+                playlistUl.appendChild(li);
+            });
+            saveStations();
+        }
+
+        function playStation(index) {
+            if (index < 0 || index >= stations.length) return;
+            const station = stations[index];
+            currentStationIndex = index;
+            audioPlayer.src = station.url;
+            audioPlayer.play().catch(e => {
+                console.error("Erreur de lecture : ", e);
+                alert(`Impossible de lire la radio "${station.name}".`);
+            });
+            currentStationDiv.textContent = `En cours : ${station.name}`;
+            updatePlayerButtons();
+            renderPlaylist();
+        }
+
+        function pauseStation() { audioPlayer.pause(); updatePlayerButtons(); }
+
+        function stopStation() {
+            audioPlayer.pause();
+            audioPlayer.src = '';
+            currentStationIndex = -1;
+            currentStationDiv.textContent = 'Aucune radio en cours de lecture';
+            updatePlayerButtons();
+            renderPlaylist();
+        }
+        
+        function updatePlayerButtons() {
+            const isPlaying = !audioPlayer.paused && audioPlayer.src;
+            const hasSource = !!audioPlayer.src;
+            playBtn.disabled = isPlaying;
+            pauseBtn.disabled = !isPlaying;
+            stopBtn.disabled = !hasSource;
+            if (currentStationIndex !== -1 && !isPlaying) { playBtn.disabled = false; }
+            else if (currentStationIndex === -1) { playBtn.disabled = true; }
+        }
+
+        function saveStations() { localStorage.setItem('webRadioStations', JSON.stringify(stations)); }
+
+        function loadStations() {
+            const savedStations = localStorage.getItem('webRadioStations');
+            if (savedStations) {
+                stations = JSON.parse(savedStations);
+            } else {
+                stations = [
+                    { name: "FIP", url: "https://stream.radiofrance.fr/fip/fip.m3u8", favorite: true },
+                    { name: "France Inter", url: "https://stream.radiofrance.fr/franceinter/franceinter.m3u8", favorite: false }
+                ];
+            }
+            renderPlaylist();
+        }
+
+        // --- Fonctions d'export/import (inchangées) ---
+
+        function exportJSON() {
+            if (stations.length === 0) { alert("La liste est vide."); return; }
+            const dataStr = JSON.stringify(stations, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'mes_radios.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function handleJsonFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const importedStations = JSON.parse(e.target.result);
+                    if (Array.isArray(importedStations) && importedStations.every(s => s.name && s.url)) {
+                        stations = importedStations;
+                        stopStation();
+                        renderPlaylist();
+                        saveStations();
+                        alert(`${stations.length} radio(s) importée(s) !`);
+                    } else { throw new Error("Format de fichier invalide."); }
+                } catch (error) { alert("Erreur d'importation."); console.error(error); }
+            };
+            reader.readAsText(file);
+            event.target.value = null;
+        }
+
+        function exportHTML() {
+            const pageHTML = document.documentElement.outerHTML;
+            const stationsData = JSON.stringify(stations);
+            const scriptToReplace = `const savedStations = localStorage.getItem('webRadioStations');`;
+            const replacementScript = `const savedStations = JSON.parse(\`${stationsData}\`); // Données exportées`;
+            
+            // NOUVEAU: Intégrer l'image et la taille dans l'export
+            const savedImage = localStorage.getItem('radioPlayerImage');
+            const savedScale = localStorage.getItem('radioPlayerImageScale');
+            
+            let finalHTML = pageHTML.replace(scriptToReplace, replacementScript);
+            
+            if(savedImage){
+                 const imageScriptToReplace = `const savedImage = localStorage.getItem('radioPlayerImage');`;
+                 const imageReplacementScript = `const savedImage = \`${savedImage}\`; // Image exportée`;
+                 finalHTML = finalHTML.replace(imageScriptToReplace, imageReplacementScript);
+            }
+             if(savedScale){
+                 const scaleScriptToReplace = `const savedScale = localStorage.getItem('radioPlayerImageScale') || '1';`;
+                 const scaleReplacementScript = `const savedScale = \`${savedScale}\`; // Taille exportée`;
+                 finalHTML = finalHTML.replace(scaleScriptToReplace, scaleReplacementScript);
+            }
+
+            const dataBlob = new Blob([finalHTML], { type: 'text/html' });
+            const url = URL.createObjectURL(dataBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'mon_lecteur_radio.html';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // --- Écouteurs d'événements ---
+
+        // NOUVEAU: Écouteurs pour l'illustration
+        loadImageBtn.addEventListener('click', () => imageInput.click());
+        imageInput.addEventListener('change', handleImageUpload);
+        imageSizeSlider.addEventListener('input', (e) => {
+            const scale = e.target.value;
+            illustrationImage.style.transform = `scale(${scale})`;
+            localStorage.setItem('radioPlayerImageScale', scale);
+        });
+        removeImageBtn.addEventListener('click', () => {
+            updateImageControls(false);
+            localStorage.removeItem('radioPlayerImage');
+            localStorage.removeItem('radioPlayerImageScale');
+        });
+
+        // Contrôles du lecteur (inchangés)
+        playBtn.addEventListener('click', () => playStation(currentStationIndex));
+        pauseBtn.addEventListener('click', pauseStation);
+        stopBtn.addEventListener('click', stopStation);
+        volumeSlider.addEventListener('input', (e) => audioPlayer.volume = e.target.value);
+        audioPlayer.addEventListener('play', updatePlayerButtons);
+        audioPlayer.addEventListener('pause', updatePlayerButtons);
+        audioPlayer.volume = volumeSlider.value;
+        
+        // Ajout/gestion de la playlist (inchangés)
+        addStationForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = stationNameInput.value.trim();
+            const url = stationUrlInput.value.trim();
+            if (name && url) {
+                if (stations.some(station => station.url === url)) {
+                    alert("Cette URL existe déjà."); return;
+                }
+                stations.push({ name, url, favorite: false });
+                renderPlaylist();
+                stationNameInput.value = '';
+                stationUrlInput.value = '';
+            }
+        });
+
+        playlistUl.addEventListener('click', (e) => {
+            const target = e.target.closest('.playlist-item');
+            if (!target) return;
+            const index = parseInt(target.dataset.index, 10);
+            if (e.target.closest('.station-info')) { playStation(index); }
+            else if (e.target.closest('.favorite-btn')) {
+                stations[index].favorite = !stations[index].favorite;
+                renderPlaylist();
+            }
+            else if (e.target.closest('.delete-btn')) {
+                if (confirm(`Supprimer "${stations[index].name}" ?`)) {
+                    if (index === currentStationIndex) { stopStation(); }
+                    stations.splice(index, 1);
+                    if (index < currentStationIndex) { currentStationIndex--; }
+                    renderPlaylist();
+                }
+            }
+        });
+
+        // Gestion des données (inchangés)
+        importJsonBtn.addEventListener('click', () => importJsonInput.click());
+        importJsonInput.addEventListener('change', handleJsonFile);
+        exportJsonBtn.addEventListener('click', exportJSON);
+        exportHtmlBtn.addEventListener('click', exportHTML);
+
+        // --- Initialisation de l'application ---
+        loadStations();
+        loadIllustration(); // NOUVEAU: Charger l'illustration au démarrage
+    });
+    </script>
+</body>
+</html>
